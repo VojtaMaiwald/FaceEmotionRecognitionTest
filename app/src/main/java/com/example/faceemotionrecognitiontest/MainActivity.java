@@ -78,11 +78,13 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap bitmap;
     private Bitmap faceBitmap;
     private FaceDetector detector;
+    private Face face;
     private Interpreter interpreter;
     private Timer timer;
     private TimerTask timerTask;
-    private Handler handler;
-    private Runnable runnable;
+    private float[] emotionsProbabilities;
+
+    private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,15 +109,12 @@ public class MainActivity extends AppCompatActivity {
         TensorImage tensorImage = new TensorImage(inputDataType);
         tensorImage.load(faceBitmap);
         FloatBuffer output = FloatBuffer.allocate(8);
-        //Tensor output = interpreter.getOutputTensor(0);
-        //float[] output = new float[8];
         interpreter.run(tensorImage.getBuffer(), output);
-        float[] emotionsProbabilities = output.array();
+        emotionsProbabilities = output.array();
         Log.wtf("emotions", Arrays.toString(emotionsProbabilities));
     }
 
     private void killTimer() {
-        //handler.removeCallbacks(runnable);
         timerTask.cancel();
         timer.cancel();
         timer.purge();
@@ -125,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setTimer() {
         timer = new Timer();
-        timerTask =  new TimerTask() {
+        timerTask = new TimerTask() {
             @Override
             public void run() {
                 if (imageViewBitmap == null && previewView.getWidth() > 0 && previewView.getHeight() > 0) {
@@ -135,10 +134,76 @@ public class MainActivity extends AppCompatActivity {
                     //savePicture();
                     detectFaces();
                     detectEmotions();
+                    drawDetections();
                 }
             }
         };
-        timer.scheduleAtFixedRate(timerTask, 1000, 100);
+        timer.scheduleAtFixedRate(timerTask, 1000, 200);
+    }
+
+    private void drawDetections() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Bitmap tempBitmap = Bitmap.createBitmap(previewView.getWidth(), previewView.getHeight(), Bitmap.Config.ARGB_8888);
+                Canvas tempCanvas = new Canvas(tempBitmap);
+                tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
+                //draw emotions and probabilities
+                if (emotionsProbabilities != null) {
+                    int max1Index = -1;
+                    int max2Index = -1;
+                    int max3Index = -1;
+
+                    for (int i = 0; i < emotionsProbabilities.length; i++) {
+                        if (max1Index == -1 || emotionsProbabilities[i] > emotionsProbabilities[max1Index]) {
+                            max3Index = max2Index;
+                            max2Index = max1Index;
+                            max1Index = i;
+                        } else if (max2Index == -1 || (emotionsProbabilities[i] > emotionsProbabilities[max2Index] && emotionsProbabilities[max1Index] > emotionsProbabilities[max2Index])) {
+                            max3Index = max2Index;
+                            max2Index = i;
+                        } else if (max3Index == -1 || (emotionsProbabilities[i] > emotionsProbabilities[max3Index] && emotionsProbabilities[max2Index] > emotionsProbabilities[max3Index])) {
+                            max3Index = i;
+                        }
+                    }
+                    Paint paint1 = new Paint();
+                    paint1.setColor(Color.BLACK);
+                    paint1.setStrokeWidth(5);
+                    paint1.setStyle(Paint.Style.FILL_AND_STROKE);
+                    paint1.setTextSize(60);
+                    Paint paint2 = new Paint();
+                    paint2.setColor(Color.WHITE);
+                    paint2.setStyle(Paint.Style.FILL);
+                    paint2.setTextSize(60);
+                    tempCanvas.drawText(EMOTIONS[max1Index] + ":\t\t\t" + emotionsProbabilities[max1Index], 10, 50, paint1);
+                    tempCanvas.drawText(EMOTIONS[max1Index] + ":\t\t\t" + emotionsProbabilities[max1Index], 10, 50, paint2);
+                    tempCanvas.drawText(EMOTIONS[max2Index] + ":\t\t\t" + emotionsProbabilities[max2Index], 10, 150, paint1);
+                    tempCanvas.drawText(EMOTIONS[max2Index] + ":\t\t\t" + emotionsProbabilities[max2Index], 10, 150, paint2);
+                    tempCanvas.drawText(EMOTIONS[max3Index] + ":\t\t\t" + emotionsProbabilities[max3Index], 10, 250, paint1);
+                    tempCanvas.drawText(EMOTIONS[max3Index] + ":\t\t\t" + emotionsProbabilities[max3Index], 10, 250, paint2);
+                }
+                //draw face bounding box
+                if (face != null) {
+                    float widthRatio = ((float) previewView.getWidth()) / mlImage.getWidth();
+                    float heightRatio = ((float) previewView.getHeight()) / mlImage.getHeight();
+                    Rect origBounds = face.getBoundingBox();
+                    Rect bounds = new Rect(previewView.getWidth() - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), previewView.getWidth() - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
+
+                    Paint paint1 = new Paint();
+                    paint1.setColor(Color.RED);
+                    paint1.setStrokeWidth(5);
+                    paint1.setStyle(Paint.Style.STROKE);
+                    tempCanvas.drawRect(bounds, paint1);
+                    Paint paint2 = new Paint();
+                    paint2.setColor(Color.WHITE);
+                    paint2.setStrokeWidth(3);
+                    paint2.setStyle(Paint.Style.STROKE);
+                    Rect bounds2 = new Rect(bounds.left + 4, bounds.top + 4, bounds.right - 4, bounds.bottom - 4);
+                    tempCanvas.drawRect(bounds2, paint2);
+                }
+                imageView.setImageBitmap(tempBitmap);
+            }
+        });
     }
 
     private void refreshFaceBitmap(Rect rect) {
@@ -255,14 +320,14 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         detector.process(mlImage).addOnSuccessListener(faces -> {
-            for (Face face : faces) {
-                drawFaceBoundingBox(face);
-                refreshFaceBitmap(face.getBoundingBox());
-            }
             if (faces.isEmpty()) {
-                drawFaceBoundingBox(null);
+                this.face = null;
+            } else {
+                this.face = faces.get(0);
+                refreshFaceBitmap(this.face.getBoundingBox());
             }
-        }).addOnFailureListener(e -> {});
+        }).addOnFailureListener(e -> {
+        });
     }
 
     private void initApp() {
