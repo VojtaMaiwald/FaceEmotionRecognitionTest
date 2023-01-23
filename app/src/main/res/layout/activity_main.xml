@@ -10,10 +10,19 @@
         android:id="@+id/previewView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
     <ImageView
         android:id="@+id/imageView"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         tools:ignore="MissingConstraints" />
+
+    <Switch
+        android:id="@+id/switchButton"
+        android:layout_width="160dp"
+        android:layout_height="3dp"
+        android:text="Turn off preview"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/previewView" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

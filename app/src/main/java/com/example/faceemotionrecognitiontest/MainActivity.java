@@ -1,9 +1,7 @@
 package com.example.faceemotionrecognitiontest;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageProxy;
@@ -13,7 +11,6 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.tasks.Task;
 import com.google.android.odml.image.BitmapMlImageBuilder;
 import com.google.android.odml.image.MlImage;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -24,6 +21,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions;
 
 import android.Manifest;
 import android.content.res.AssetFileDescriptor;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -34,27 +32,25 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.MediaStore;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
+import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
+import android.widget.Switch;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.Tensor;
 import org.tensorflow.lite.gpu.CompatibilityList;
 import org.tensorflow.lite.gpu.GpuDelegate;
 import org.tensorflow.lite.gpu.GpuDelegateFactory;
 import org.tensorflow.lite.support.image.TensorImage;
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -63,13 +59,13 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private PreviewView previewView;
     private MlImage mlImage;
@@ -83,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
     private Timer timer;
     private TimerTask timerTask;
     private float[] emotionsProbabilities;
+    private int width;
+    private int height;
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
 
@@ -91,27 +89,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         initApp();
-
         setupCamera();
-
         setupFaceDetector();
-
         setupEmotionDetector();
-
         setTimer();
-    }
-
-    private void detectEmotions() {
-        if (faceBitmap == null) {
-            return;
-        }
-        DataType inputDataType = interpreter.getInputTensor(0).dataType();
-        TensorImage tensorImage = new TensorImage(inputDataType);
-        tensorImage.load(faceBitmap);
-        FloatBuffer output = FloatBuffer.allocate(8);
-        interpreter.run(tensorImage.getBuffer(), output);
-        emotionsProbabilities = output.array();
-        Log.wtf("emotions", Arrays.toString(emotionsProbabilities));
     }
 
     private void killTimer() {
@@ -127,13 +108,15 @@ public class MainActivity extends AppCompatActivity {
         timerTask = new TimerTask() {
             @Override
             public void run() {
-                if (imageViewBitmap == null && previewView.getWidth() > 0 && previewView.getHeight() > 0) {
-                    imageViewBitmap = Bitmap.createBitmap(previewView.getWidth(), previewView.getHeight(), Bitmap.Config.ARGB_8888);
-                } else if (imageViewBitmap != null && imageCapture != null) {
+                if (imageViewBitmap == null) {
+                    imageViewBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                } else if (imageCapture != null) {
                     takePicture();
                     //savePicture();
                     detectFaces();
+                   //saveFaceBitmap();
                     detectEmotions();
+                    //Log.wtf("emotions", Arrays.toString(emotionsProbabilities));
                     drawDetections();
                 }
             }
@@ -141,11 +124,23 @@ public class MainActivity extends AppCompatActivity {
         timer.scheduleAtFixedRate(timerTask, 1000, 200);
     }
 
+    private void detectEmotions() {
+        if (faceBitmap == null) {
+            return;
+        }
+        DataType inputDataType = interpreter.getInputTensor(0).dataType();
+        TensorImage tensorImage = new TensorImage(inputDataType);
+        tensorImage.load(faceBitmap);
+        FloatBuffer output = FloatBuffer.allocate(8);
+        interpreter.run(tensorImage.getBuffer(), output);
+        emotionsProbabilities = output.array();
+    }
+
     private void drawDetections() {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                Bitmap tempBitmap = Bitmap.createBitmap(previewView.getWidth(), previewView.getHeight(), Bitmap.Config.ARGB_8888);
+                Bitmap tempBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
                 Canvas tempCanvas = new Canvas(tempBitmap);
                 tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
                 //draw emotions and probabilities
@@ -184,10 +179,10 @@ public class MainActivity extends AppCompatActivity {
                 }
                 //draw face bounding box
                 if (face != null) {
-                    float widthRatio = ((float) previewView.getWidth()) / mlImage.getWidth();
-                    float heightRatio = ((float) previewView.getHeight()) / mlImage.getHeight();
+                    float widthRatio = ((float) width) / mlImage.getWidth();
+                    float heightRatio = ((float) height) / mlImage.getHeight();
                     Rect origBounds = face.getBoundingBox();
-                    Rect bounds = new Rect(previewView.getWidth() - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), previewView.getWidth() - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
+                    Rect bounds = new Rect(width - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), width - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
 
                     Paint paint1 = new Paint();
                     paint1.setColor(Color.RED);
@@ -210,39 +205,15 @@ public class MainActivity extends AppCompatActivity {
         if (bitmap == null || rect.left < 0 || rect.top < 0 || rect.width() + Math.max(0, rect.left) > bitmap.getWidth() || rect.height() + Math.max(0, rect.top) > bitmap.getHeight()) {
             return;
         }
-        //if (faceBitmap == null) {
-        //    faceBitmap = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height());
-        //    savePicture(faceBitmap);
-        //}
         faceBitmap = Bitmap.createScaledBitmap(Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height()), 224, 224, true);
     }
 
-    private void drawFaceBoundingBox(Face face) {
-        Bitmap tempBitmap = Bitmap.createBitmap(previewView.getWidth(), previewView.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas tempCanvas = new Canvas(tempBitmap);
-        tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
-        if (face == null) {
-            imageView.setImageBitmap(tempBitmap);
-            return;
+    private boolean saveFaceBitmap() {
+        if (faceBitmap == null) {
+            return false;
         }
-
-        float widthRatio = ((float) previewView.getWidth()) / mlImage.getWidth();
-        float heightRatio = ((float) previewView.getHeight()) / mlImage.getHeight();
-        Rect origBounds = face.getBoundingBox();
-        Rect bounds = new Rect(previewView.getWidth() - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), previewView.getWidth() - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
-
-        Paint paint1 = new Paint();
-        paint1.setColor(Color.RED);
-        paint1.setStrokeWidth(5);
-        paint1.setStyle(Paint.Style.STROKE);
-        tempCanvas.drawRect(bounds, paint1);
-        Paint paint2 = new Paint();
-        paint2.setColor(Color.WHITE);
-        paint2.setStrokeWidth(3);
-        paint2.setStyle(Paint.Style.STROKE);
-        Rect bounds2 = new Rect(bounds.left + 4, bounds.top + 4, bounds.right - 4, bounds.bottom - 4);
-        tempCanvas.drawRect(bounds2, paint2);
-        imageView.setImageBitmap(tempBitmap);
+        savePicture(faceBitmap);
+        return true;
     }
 
     private void setupEmotionDetector() {
@@ -288,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, assetFileDescriptor.getStartOffset(), assetFileDescriptor.getDeclaredLength());
     }
 
-    void bindPreview(ProcessCameraProvider cameraProvider) {
+    void bindPreview() {
         Preview preview = new Preview.Builder().build();
         CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
@@ -339,15 +310,38 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.MANAGE_EXTERNAL_STORAGE}, 2);
         }
+
+        DisplayMetrics metrics = this.getResources().getDisplayMetrics();
+        width = metrics.widthPixels;
+        height = metrics.heightPixels;
+
+        ((Switch)findViewById(R.id.switchButton)).setOnCheckedChangeListener(this);
+    }
+
+    @Override
+    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        Preview preview = new Preview.Builder().build();
+        if (isChecked) {
+            previewView.setVisibility(View.INVISIBLE);
+            previewView = null;
+        }
+        else {
+            previewView = findViewById(R.id.previewView);
+            previewView.setVisibility(View.VISIBLE);
+            preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        }
+        CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
+        imageCapture = new ImageCapture.Builder().setTargetRotation(Surface.ROTATION_0).setTargetResolution(new Size(360, 640)).build();
+        cameraProvider.unbindAll();
+        cameraProvider.bindToLifecycle(this, cameraSelector, imageCapture, preview);
     }
 
     private void setupCamera() {
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
-            ProcessCameraProvider cameraProvider;
             try {
                 cameraProvider = cameraProviderFuture.get();
-                bindPreview(cameraProvider);
+                bindPreview();
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }
