@@ -10,16 +10,15 @@ public class EmotionList<T> extends ArrayList<float[]> {
         this.emotions = emotions;
     }
 
-    @Override
     public boolean add(float[] array) {
-        while (super.size() >= limit) {
-            super.remove(0);
+        while (this.size() >= limit) {
+            this.remove(0);
         }
         return super.add(array);
     }
 
     public float[] getEmotionAverages() {
-        if (super.size() == 0) {
+        if (this.size() == 0) {
             return null;
         }
         float[] averages = new float[emotions];
@@ -38,5 +37,11 @@ public class EmotionList<T> extends ArrayList<float[]> {
         }
 
         return averages;
+    }
+
+    public void removeLast() {
+        if (this.size() != 0) {
+            this.remove(0);
+        }
     }
 }

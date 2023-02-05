@@ -1,6 +1,7 @@
 package com.example.faceemotionrecognitiontest;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
@@ -57,6 +58,7 @@ import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private int width;
     private int height;
     private EmotionList<float[]> emotionList;
+    Paint paintTextBlack, paintTextWhite, paintBoundBoxRed, paintBoundBoxWhite;
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
 
@@ -114,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     detectFaces();
                    //saveFaceBitmap();
                     detectEmotions();
+                    //drawDetectionsOld();
                     drawDetections();
                 }
             }
@@ -123,6 +127,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     private void detectEmotions() {
         if (faceBitmap == null) {
+            emotionList.removeLast();
             return;
         }
         DataType inputDataType = interpreter.getInputTensor(0).dataType();
@@ -134,6 +139,58 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     }
 
     private void drawDetections() {
+        runOnUiThread(() -> {
+            Bitmap tempBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas tempCanvas = new Canvas(tempBitmap);
+            tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
+
+            //draw emotions and probabilities
+            float widthThird = width / 3.0f;
+            float widthThreeQuarters = (width / 4.0f) * 3;
+            float[] averages = emotionList.getEmotionAverages();
+            tempCanvas.drawLine(0, 0, width, 0, paintTextBlack);
+            tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextBlack);
+            tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextBlack);
+            tempCanvas.drawLine(0, 0, width, 0, paintTextWhite);
+            for (int i = 0; i < EMOTIONS.length; i++) {
+                tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextBlack);
+                tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextWhite);
+                tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextBlack);
+                tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextWhite);
+                if (averages == null) {
+                    tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
+                    tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
+                }
+                else {
+                    tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
+                    tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
+                    int green = Math.min(255, (int)(255 * 2 * averages[i]));
+                    int red = Math.min(255, (int)(255 * 2 * (1 - averages[i])));
+                    Paint paintRect = new Paint();
+                    paintRect.setColor(Color.rgb(red, green, 0));
+                    paintRect.setStyle(Paint.Style.FILL);
+                    tempCanvas.drawRect(widthThird, i * 80, ((widthThreeQuarters - widthThird) * averages[i]) + widthThird, 80 + (i * 80), paintRect);
+                }
+            }
+            tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextWhite);
+            tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextWhite);
+
+            //draw face bounding box
+            if (face != null) {
+                float widthRatio = ((float) width) / mlImage.getWidth();
+                float heightRatio = ((float) height) / mlImage.getHeight();
+                Rect origBounds = face.getBoundingBox();
+                Rect bounds = new Rect(width - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), width - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
+
+                tempCanvas.drawRect(bounds, paintBoundBoxRed);
+                Rect bounds2 = new Rect(bounds.left + 4, bounds.top + 4, bounds.right - 4, bounds.bottom - 4);
+                tempCanvas.drawRect(bounds2, paintBoundBoxWhite);
+            }
+            imageView.setImageBitmap(tempBitmap);
+        });
+    }
+
+    private void drawDetectionsOld() {
         runOnUiThread(() -> {
             Bitmap tempBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
             Canvas tempCanvas = new Canvas(tempBitmap);
@@ -297,10 +354,35 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     }
 
     private void initApp() {
-        emotionList = new EmotionList<>(10, 8);
+        ActionBar bar = getSupportActionBar();
+        if (bar != null) {
+            bar.hide();
+        }
+        emotionList = new EmotionList<>(10, EMOTIONS.length);
         setContentView(R.layout.activity_main);
         previewView = findViewById(R.id.previewView);
         imageView = findViewById(R.id.imageView);
+
+        paintTextBlack = new Paint();
+        paintTextBlack.setColor(Color.BLACK);
+        paintTextBlack.setStrokeWidth(5);
+        paintTextBlack.setStyle(Paint.Style.FILL_AND_STROKE);
+        paintTextBlack.setTextSize(60);
+
+        paintTextWhite = new Paint();
+        paintTextWhite.setColor(Color.WHITE);
+        paintTextWhite.setStyle(Paint.Style.FILL);
+        paintTextWhite.setTextSize(60);
+
+        paintBoundBoxRed = new Paint();
+        paintBoundBoxRed.setColor(Color.RED);
+        paintBoundBoxRed.setStrokeWidth(5);
+        paintBoundBoxRed.setStyle(Paint.Style.STROKE);
+
+        paintBoundBoxWhite = new Paint();
+        paintBoundBoxWhite.setColor(Color.WHITE);
+        paintBoundBoxWhite.setStrokeWidth(3);
+        paintBoundBoxWhite.setStyle(Paint.Style.STROKE);
 
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
