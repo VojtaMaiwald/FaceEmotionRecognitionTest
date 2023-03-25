@@ -38,8 +38,11 @@ import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.CompoundButton;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.Switch;
 
 import org.tensorflow.lite.DataType;
@@ -47,6 +50,7 @@ import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.gpu.CompatibilityList;
 import org.tensorflow.lite.gpu.GpuDelegate;
 import org.tensorflow.lite.gpu.GpuDelegateFactory;
+import org.tensorflow.lite.nnapi.NnApiDelegate;
 import org.tensorflow.lite.support.image.TensorImage;
 
 import java.io.File;
@@ -58,12 +62,15 @@ import java.nio.FloatBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 
 public class MainActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener {
+    public static Boolean REGRESSION = false;
+
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
@@ -81,9 +88,22 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     private int width;
     private int height;
     private EmotionList<float[]> emotionList;
-    Paint paintTextBlack, paintTextWhite, paintBoundBoxRed, paintBoundBoxWhite;
+    private Spinner dropdown;
+    Paint paintTextBlack, paintTextWhite, paintBoundBoxRed, paintBoundBoxWhite, paintCircleBlack, paintCircleWhite, paintTextBlackHalf, paintTextWhiteHalf, paintDotRed, paintDotBlue;
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
+    private final String[] regressors = new String[]{
+            "RMSE_0.411_MobileNetV2_B8_E25_D0.2_SGD_lr_0.01.tflite",
+            "RMSE_0.423_MobileNetV3Large_E25_B32_D0.2_SDG0.01.tflite",
+    };
+    private final String[] classifiers = new String[]{
+            "PERC_55.939_EfficientNetB0_E25_B8_AUG.tflite",
+            "PERC_54.839_MobileNetV2_E25_B8_D_0.2_AUG.tflite",
+            "PERC_54.489_MobileNetV3Large_E25_B16_A_1.25_D_0.5_AUG.tflite",
+            "PERC_53.938_MobileNetV3Small_E30_B16_A_1.25_D_0.5_AUG.tflite",
+            "PERC_53.038_MobileNetV3Large_E25_B16_A_0.75_D_0.2_AUG_MINI.tflite",
+            "PERC_50.838_NASNetMobile_E25_B16_AUG.tflite",
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,9 +153,12 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         DataType inputDataType = interpreter.getInputTensor(0).dataType();
         TensorImage tensorImage = new TensorImage(inputDataType);
         tensorImage.load(faceBitmap);
-        FloatBuffer output = FloatBuffer.allocate(8);
+        FloatBuffer output = FloatBuffer.allocate(REGRESSION ? 2 : 8);
+
         interpreter.run(tensorImage.getBuffer(), output);
         emotionList.add(output.array());
+
+        Log.wtf("emotionsDetections", Arrays.toString(emotionList.getTail()));
     }
 
     private void drawDetections() {
@@ -144,36 +167,78 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             Canvas tempCanvas = new Canvas(tempBitmap);
             tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
 
-            //draw emotions and probabilities
             float widthThird = width / 3.0f;
             float widthThreeQuarters = (width / 4.0f) * 3;
-            float[] averages = emotionList.getEmotionAverages();
-            tempCanvas.drawLine(0, 0, width, 0, paintTextBlack);
-            tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextBlack);
-            tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextBlack);
-            tempCanvas.drawLine(0, 0, width, 0, paintTextWhite);
-            for (int i = 0; i < EMOTIONS.length; i++) {
-                tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextBlack);
-                tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextWhite);
-                tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextBlack);
-                tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextWhite);
-                if (averages == null) {
-                    tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
-                    tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
-                }
-                else {
-                    tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
-                    tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
-                    int green = Math.min(255, (int)(255 * 2 * averages[i]));
-                    int red = Math.min(255, (int)(255 * 2 * (1 - averages[i])));
-                    Paint paintRect = new Paint();
-                    paintRect.setColor(Color.rgb(red, green, 0));
-                    paintRect.setStyle(Paint.Style.FILL);
-                    tempCanvas.drawRect(widthThird, i * 80, ((widthThreeQuarters - widthThird) * averages[i]) + widthThird, 80 + (i * 80), paintRect);
+            float widthQuarter = (width / 4.0f);
+            //draw emotions and probabilities
+            if (REGRESSION) {
+                tempCanvas.drawCircle(widthThreeQuarters - 50, widthQuarter + 50, widthQuarter, paintCircleBlack);
+                tempCanvas.drawCircle(widthThreeQuarters - 50, widthQuarter + 50, widthQuarter, paintCircleWhite);
+                tempCanvas.drawCircle(widthThreeQuarters - 50, widthQuarter + 50, widthQuarter / 2, paintCircleBlack);
+                tempCanvas.drawCircle(widthThreeQuarters - 50, widthQuarter + 50, widthQuarter / 2, paintCircleWhite);
+
+                tempCanvas.drawText("Surprised", widthThreeQuarters - 145, 42, paintTextBlackHalf);
+                tempCanvas.drawText("Surprised", widthThreeQuarters - 145, 42, paintTextWhiteHalf);
+                tempCanvas.drawText("Calm", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextBlackHalf);
+                tempCanvas.drawText("Calm", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextWhiteHalf);
+                tempCanvas.drawText("Neutral",widthThreeQuarters - 130, widthQuarter + 70, paintTextBlackHalf);
+                tempCanvas.drawText("Neutral",widthThreeQuarters - 130, widthQuarter + 70, paintTextWhiteHalf);
+
+                tempCanvas.rotate(-45, widthThreeQuarters - 50, widthQuarter + 50);
+                tempCanvas.drawText("Angry", widthThreeQuarters - 145, 42, paintTextBlackHalf);
+                tempCanvas.drawText("Angry", widthThreeQuarters - 145, 42, paintTextWhiteHalf);
+                tempCanvas.drawText("Relaxed", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextBlackHalf);
+                tempCanvas.drawText("Relaxed", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextWhiteHalf);
+                tempCanvas.rotate(-45, widthThreeQuarters - 50, widthQuarter + 50);
+                tempCanvas.drawText("Sad", widthThreeQuarters - 125, 42, paintTextBlackHalf);
+                tempCanvas.drawText("Sad", widthThreeQuarters - 125, 42, paintTextWhiteHalf);
+                tempCanvas.rotate(180, widthThreeQuarters - 50, widthQuarter + 50);
+                tempCanvas.drawText("Happy", widthThreeQuarters - 145, 42, paintTextBlackHalf);
+                tempCanvas.drawText("Happy", widthThreeQuarters - 145, 42, paintTextWhiteHalf);
+                tempCanvas.rotate(-45, widthThreeQuarters - 50, widthQuarter + 50);
+                tempCanvas.drawText("Excited", widthThreeQuarters - 145, 42, paintTextBlackHalf);
+                tempCanvas.drawText("Excited", widthThreeQuarters - 145, 42, paintTextWhiteHalf);
+                tempCanvas.drawText("Bored", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextBlackHalf);
+                tempCanvas.drawText("Bored", widthThreeQuarters - 110, widthQuarter * 2 + 100, paintTextWhiteHalf);
+                tempCanvas.rotate(-45, widthThreeQuarters - 50, widthQuarter + 50);
+
+                float[] averages = emotionList.getEmotionAverages();
+                if (averages != null) {
+                    averages[0] = Math.min(Math.max((averages[0] * 1.6f) - 0.8f, -1), 1);
+                    averages[1] = Math.min(Math.max(averages[1] - 0.2f, -1), 1);
+                    tempCanvas.drawCircle(widthThreeQuarters - 50 + (widthQuarter * averages[1]), widthQuarter + 50 - (widthQuarter * averages[0]), 20, paintDotRed);
+                    tempCanvas.drawCircle(widthThreeQuarters - 50 + (widthQuarter * averages[1]), widthQuarter + 50 - (widthQuarter * averages[0]), 20, paintDotBlue);
                 }
             }
-            tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextWhite);
-            tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextWhite);
+            else {
+                float[] averages = emotionList.getEmotionAverages();
+                tempCanvas.drawLine(0, 0, width, 0, paintTextBlack);
+                tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextBlack);
+                tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextBlack);
+                tempCanvas.drawLine(0, 0, width, 0, paintTextWhite);
+                for (int i = 0; i < EMOTIONS.length; i++) {
+                    tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextBlack);
+                    tempCanvas.drawText(EMOTIONS[i], 20, 60 + (i * 80), paintTextWhite);
+                    tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextBlack);
+                    tempCanvas.drawLine(0, 80 + (i * 80), width, 80 + (i * 80), paintTextWhite);
+                    if (averages == null) {
+                        tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
+                        tempCanvas.drawText("0.00 %", widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
+                    }
+                    else {
+                        tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextBlack);
+                        tempCanvas.drawText(String.format(Locale.US,"%.2f %%", averages[i] * 100), widthThreeQuarters + 20, 60 + (i * 80), paintTextWhite);
+                        int green = Math.min(255, (int)(255 * 2 * averages[i]));
+                        int red = Math.min(255, (int)(255 * 2 * (1 - averages[i])));
+                        Paint paintRect = new Paint();
+                        paintRect.setColor(Color.rgb(red, green, 0));
+                        paintRect.setStyle(Paint.Style.FILL);
+                        tempCanvas.drawRect(widthThird, i * 80, ((widthThreeQuarters - widthThird) * averages[i]) + widthThird, 80 + (i * 80), paintRect);
+                    }
+                }
+                tempCanvas.drawLine(widthThird, 0, widthThird, 640, paintTextWhite);
+                tempCanvas.drawLine(widthThreeQuarters, 0, widthThreeQuarters, 640, paintTextWhite);
+            }
 
             //draw face bounding box
             if (face != null) {
@@ -272,18 +337,31 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         Interpreter.Options interpreterOptions = new Interpreter.Options();
         CompatibilityList compatList = new CompatibilityList();
 
-        if (compatList.isDelegateSupportedOnThisDevice()) {
-            // if the device has a supported GPU, add the GPU delegate
-            GpuDelegateFactory.Options delegateOptions = compatList.getBestOptionsForThisDevice();
-            GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
-            interpreterOptions.addDelegate(gpuDelegate);
-            Log.wtf("emotions", "GPU supported");
+        // by default it uses some kind of delegate so maybe this is not necessary to explicitly set NNAPI or GPU delegates
 
-        } else {
-            // if the GPU is not supported, run on 4 threads
-            interpreterOptions.setNumThreads(4);
-            Log.wtf("emotions", "GPU not supported");
-        }
+        //if (compatList.isDelegateSupportedOnThisDevice()) {
+        //    // if the device has a supported GPU, add the GPU delegate
+        //    GpuDelegateFactory.Options delegateOptions = compatList.getBestOptionsForThisDevice();
+        //    delegateOptions.setInferencePreference(GpuDelegateFactory.Options.INFERENCE_PREFERENCE_SUSTAINED_SPEED);
+        //    //delegateOptions.setForceBackend(GpuDelegateFactory.Options.GpuBackend.OPENGL); //wait for Tensorflow Lite 2.12.0
+        //    GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
+        //    interpreterOptions.addDelegate(gpuDelegate);
+        //    Log.wtf("emotions", "GPU supported");
+//
+        //} else {
+        //    Log.wtf("emotions", "GPU not supported");
+        //}
+
+        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        //    // if the device has a support in NNAPI, add the NNAPI delegate
+        //    NnApiDelegate nnApiDelegate = new NnApiDelegate();
+        //    interpreterOptions.setUseNNAPI(true);
+        //    interpreterOptions.addDelegate(nnApiDelegate);
+        //    Log.wtf("emotions", "NNAPI supported");
+        //}
+        //else {
+        //    Log.wtf("emotions", "NNAPI not supported");
+        //}
 
         try {
             interpreter = new Interpreter(loadModelFile(), interpreterOptions);
@@ -305,7 +383,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     }
 
     private MappedByteBuffer loadModelFile() throws IOException {
-        AssetFileDescriptor assetFileDescriptor = this.getAssets().openFd("model_optimized.tflite");
+        AssetFileDescriptor assetFileDescriptor = this.getAssets().openFd(REGRESSION ? regressors[dropdown.getSelectedItemPosition()] : classifiers[dropdown.getSelectedItemPosition()]);
         FileInputStream fileInputStream = new FileInputStream(assetFileDescriptor.getFileDescriptor());
         FileChannel fileChannel = fileInputStream.getChannel();
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, assetFileDescriptor.getStartOffset(), assetFileDescriptor.getDeclaredLength());
@@ -374,6 +452,39 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         paintTextWhite.setStyle(Paint.Style.FILL);
         paintTextWhite.setTextSize(60);
 
+        paintDotRed = new Paint();
+        paintDotRed.setColor(Color.RED);
+        paintDotRed.setStrokeWidth(5);
+        paintDotRed.setStyle(Paint.Style.FILL_AND_STROKE);
+        paintDotRed.setTextSize(60);
+
+        paintDotBlue = new Paint();
+        paintDotBlue.setColor(Color.BLUE);
+        paintDotBlue.setStyle(Paint.Style.FILL);
+        paintDotBlue.setTextSize(60);
+
+        paintTextBlackHalf = new Paint();
+        paintTextBlackHalf.setColor(Color.BLACK);
+        paintTextBlackHalf.setStrokeWidth(5);
+        paintTextBlackHalf.setStyle(Paint.Style.FILL_AND_STROKE);
+        paintTextBlackHalf.setTextSize(50);
+
+        paintTextWhiteHalf = new Paint();
+        paintTextWhiteHalf.setColor(Color.WHITE);
+        paintTextWhiteHalf.setStyle(Paint.Style.FILL);
+        paintTextWhiteHalf.setTextSize(50);
+
+        paintCircleBlack = new Paint();
+        paintCircleBlack.setColor(Color.BLACK);
+        paintCircleBlack.setStrokeWidth(5);
+        paintCircleBlack.setStyle(Paint.Style.STROKE);
+        paintCircleBlack.setTextSize(60);
+
+        paintCircleWhite = new Paint();
+        paintCircleWhite.setColor(Color.WHITE);
+        paintCircleWhite.setStyle(Paint.Style.STROKE);
+        paintCircleWhite.setTextSize(60);
+
         paintBoundBoxRed = new Paint();
         paintBoundBoxRed.setColor(Color.RED);
         paintBoundBoxRed.setStrokeWidth(5);
@@ -393,25 +504,48 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         width = metrics.widthPixels;
         height = metrics.heightPixels;
 
-        ((Switch)findViewById(R.id.switchButton)).setOnCheckedChangeListener(this);
+        ((Switch)findViewById(R.id.switchPreviewButton)).setOnCheckedChangeListener(this);
+        ((Switch)findViewById(R.id.switchRegressionButton)).setOnCheckedChangeListener(this);
+
+        dropdown = findViewById(R.id.spinnerClass);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, classifiers);
+        dropdown.setAdapter(adapter);
+        dropdown.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                setupEmotionDetector();
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
     }
 
     @Override
     public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-        Preview preview = new Preview.Builder().build();
-        if (isChecked) {
-            previewView.setVisibility(View.INVISIBLE);
-            previewView = null;
+        if (buttonView.getId() == R.id.switchPreviewButton) {
+            Preview preview = new Preview.Builder().build();
+            if (isChecked) {
+                previewView.setVisibility(View.INVISIBLE);
+                previewView = null;
+            } else {
+                previewView = findViewById(R.id.previewView);
+                previewView.setVisibility(View.VISIBLE);
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+            }
+            CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
+            imageCapture = new ImageCapture.Builder().setTargetRotation(Surface.ROTATION_0).setTargetResolution(new Size(360, 640)).build();
+            cameraProvider.unbindAll();
+            cameraProvider.bindToLifecycle(this, cameraSelector, imageCapture, preview);
         }
-        else {
-            previewView = findViewById(R.id.previewView);
-            previewView.setVisibility(View.VISIBLE);
-            preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        if (buttonView.getId() == R.id.switchRegressionButton) {
+            REGRESSION = isChecked;
+            emotionList.setEmotions(REGRESSION ? 2 : 8);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, REGRESSION ? regressors : classifiers);
+            dropdown.setAdapter(adapter);
         }
-        CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
-        imageCapture = new ImageCapture.Builder().setTargetRotation(Surface.ROTATION_0).setTargetResolution(new Size(360, 640)).build();
-        cameraProvider.unbindAll();
-        cameraProvider.bindToLifecycle(this, cameraSelector, imageCapture, preview);
     }
 
     private void setupCamera() {

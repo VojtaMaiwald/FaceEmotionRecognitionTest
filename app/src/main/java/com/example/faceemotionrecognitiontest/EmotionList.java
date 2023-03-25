@@ -4,10 +4,15 @@ import java.util.ArrayList;
 
 public class EmotionList<T> extends ArrayList<float[]> {
     private final int limit;
-    private final int emotions;
+    private int emotions;
     public EmotionList(int limit, int emotions) {
         this.limit = limit;
         this.emotions = emotions;
+    }
+
+    public void setEmotions(int emotions) {
+        this.emotions = emotions;
+        super.clear();
     }
 
     public boolean add(float[] array) {
@@ -42,6 +47,15 @@ public class EmotionList<T> extends ArrayList<float[]> {
     public void removeLast() {
         if (this.size() != 0) {
             this.remove(0);
+        }
+    }
+
+    public float[] getTail() {
+        if (this.size() != 0) {
+            return this.get(this.size() - 1);
+        }
+        else {
+            return new float[] {};
         }
     }
 }

@@ -9,7 +9,9 @@
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        tools:layout_editor_absoluteX="-90dp"
+        tools:layout_editor_absoluteY="-83dp" />
 
     <ImageView
         android:id="@+id/imageView"
@@ -17,12 +19,31 @@
         android:layout_height="wrap_content"
         tools:ignore="MissingConstraints" />
 
+    <Spinner
+        android:id="@+id/spinnerClass"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="#6b6b6b"
+        android:spinnerMode="dropdown"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/previewView" />
+
     <Switch
-        android:id="@+id/switchButton"
+        android:id="@+id/switchPreviewButton"
         android:layout_width="160dp"
         android:layout_height="3dp"
         android:text="Turn off preview"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="@+id/previewView" />
+        app:layout_constraintEnd_toEndOf="@+id/previewView"
+        app:layout_constraintBottom_toTopOf="@+id/spinnerClass" />
+
+    <Switch
+        android:id="@+id/switchRegressionButton"
+        android:layout_width="160dp"
+        android:layout_height="3dp"
+        android:text="Use regression"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/spinnerClass"
+        app:layout_constraintStart_toStartOf="@+id/previewView" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
