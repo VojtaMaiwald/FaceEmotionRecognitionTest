@@ -33,7 +33,9 @@ public class EmotionList<T> extends ArrayList<float[]> {
 
         for (float[] detection : this) {
             for (int i = 0; i < emotions; i++) {
-                averages[i] += detection[i];
+                if (i < detection.length) {
+                    averages[i] += detection[i];
+                }
             }
         }
 

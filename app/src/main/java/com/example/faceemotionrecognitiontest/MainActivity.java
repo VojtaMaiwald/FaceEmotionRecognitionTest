@@ -93,16 +93,22 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
     private final String[] regressors = new String[]{
-            "RMSE_0.411_MobileNetV2_B8_E25_D0.2_SGD_lr_0.01.tflite",
-            "RMSE_0.423_MobileNetV3Large_E25_B32_D0.2_SDG0.01.tflite",
+            "RMSE_0.380_MnasNet_AroVal_E10_B8_A1.0_DEPTH1_Adam0.001.tflite",
+            "RMSE_0.387_ShuffleNet_AroVal_E10_B8_Channels200_Adam0.001.tflite",
+            "RMSE_0.390_ShuffleNetV2_AroVal_E10_B8_SC1.5_BOTTLENECK1_SGD0.01.tflite",
+            "RMSE_0.392_EfficientNetB0_AroVal_E25_B8_SGD0.01.tflite",
+            "RMSE_0.398_MobileNetV2_AroVal_B8_E25_D0.5_Adam_0.01.tflite",
     };
     private final String[] classifiers = new String[]{
-            "PERC_55.939_EfficientNetB0_E25_B8_AUG.tflite",
-            "PERC_54.839_MobileNetV2_E25_B8_D_0.2_AUG.tflite",
-            "PERC_54.489_MobileNetV3Large_E25_B16_A_1.25_D_0.5_AUG.tflite",
-            "PERC_53.938_MobileNetV3Small_E30_B16_A_1.25_D_0.5_AUG.tflite",
-            "PERC_53.038_MobileNetV3Large_E25_B16_A_0.75_D_0.2_AUG_MINI.tflite",
-            "PERC_50.838_NASNetMobile_E25_B16_AUG.tflite",
+            "PERC_56.889_MnasNet_E25_B8_A1.5_DEPTH3_Adam0.0001.tflite",
+            "PERC_56.164_EfficientNetB0_E25_B8_SGD0.01.tflite",
+            "PERC_55.639_DenseNet121_E25_B8_Adam0.0001.tflite",
+            "PERC_55.489_EfficientNetB1_E25_B8_SGD0.01.tflite",
+            "PERC_54.839_MobileNetV2_E25_B8_D_0.2.tflite",
+            "PERC_54.714_GhostNet_E25_B8_Adam0.0001.tflite",
+            "PERC_54.414_SqueezeNet_E25_B8_COMPR1.0_D0.2_Adam0.0001.tflite",
+            "PERC_54.339_MobileNetV3Large_E25_B16_A_1.25_D_0.2.tflite",
+            "PERC_53.938_MobileNetV3Small_E30_B16_A_1.25_D_0.5.tflite",
     };
 
     @Override
@@ -117,11 +123,15 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     }
 
     private void killTimer() {
-        timerTask.cancel();
-        timer.cancel();
-        timer.purge();
-        timer = null;
-        timerTask = null;
+        if (timerTask != null) {
+            timerTask.cancel();
+            timerTask = null;
+        }
+        if (timer != null) {
+            timer.cancel();
+            timer.purge();
+            timer = null;
+        }
     }
 
     private void setTimer() {
@@ -155,8 +165,16 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         tensorImage.load(faceBitmap);
         FloatBuffer output = FloatBuffer.allocate(REGRESSION ? 2 : 8);
 
-        interpreter.run(tensorImage.getBuffer(), output);
-        emotionList.add(output.array());
+        try {
+            long startTime = System.currentTimeMillis();
+            interpreter.run(tensorImage.getBuffer(), output);
+            long difference = System.currentTimeMillis() - startTime;
+            Log.wtf("emotionsDetectionsTime", difference + " ms");
+            emotionList.add(output.array());
+        }
+        catch (Exception ignored) {
+
+        }
 
         Log.wtf("emotionsDetections", Arrays.toString(emotionList.getTail()));
     }
@@ -204,8 +222,8 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
                 float[] averages = emotionList.getEmotionAverages();
                 if (averages != null) {
-                    averages[0] = Math.min(Math.max((averages[0] * 1.6f) - 0.8f, -1), 1);
-                    averages[1] = Math.min(Math.max(averages[1] - 0.2f, -1), 1);
+                    averages[0] = Math.min(Math.max(averages[0], -1), 1);
+                    averages[1] = Math.min(Math.max(averages[1], -1), 1);
                     tempCanvas.drawCircle(widthThreeQuarters - 50 + (widthQuarter * averages[1]), widthQuarter + 50 - (widthQuarter * averages[0]), 20, paintDotRed);
                     tempCanvas.drawCircle(widthThreeQuarters - 50 + (widthQuarter * averages[1]), widthQuarter + 50 - (widthQuarter * averages[0]), 20, paintDotBlue);
                 }
