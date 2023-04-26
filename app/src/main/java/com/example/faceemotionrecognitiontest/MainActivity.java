@@ -147,7 +147,6 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                     detectFaces();
                    //saveFaceBitmap();
                     detectEmotions();
-                    //drawDetectionsOld();
                     drawDetections();
                 }
             }
@@ -273,69 +272,6 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         });
     }
 
-    private void drawDetectionsOld() {
-        runOnUiThread(() -> {
-            Bitmap tempBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            Canvas tempCanvas = new Canvas(tempBitmap);
-            tempCanvas.drawBitmap(imageViewBitmap, 0, 0, null);
-            //draw emotions and probabilities
-            float[] averages = emotionList.getEmotionAverages();
-            if (averages != null) {
-                int max1Index = -1;
-                int max2Index = -1;
-                int max3Index = -1;
-
-                for (int i = 0; i < averages.length; i++) {
-                    if (max1Index == -1 || averages[i] > averages[max1Index]) {
-                        max3Index = max2Index;
-                        max2Index = max1Index;
-                        max1Index = i;
-                    } else if (max2Index == -1 || (averages[i] > averages[max2Index] && averages[max1Index] > averages[max2Index])) {
-                        max3Index = max2Index;
-                        max2Index = i;
-                    } else if (max3Index == -1 || (averages[i] > averages[max3Index] && averages[max2Index] > averages[max3Index])) {
-                        max3Index = i;
-                    }
-                }
-                Paint paint1 = new Paint();
-                paint1.setColor(Color.BLACK);
-                paint1.setStrokeWidth(5);
-                paint1.setStyle(Paint.Style.FILL_AND_STROKE);
-                paint1.setTextSize(60);
-                Paint paint2 = new Paint();
-                paint2.setColor(Color.WHITE);
-                paint2.setStyle(Paint.Style.FILL);
-                paint2.setTextSize(60);
-                tempCanvas.drawText(EMOTIONS[max1Index] + ":\t\t\t" + averages[max1Index], 10, 50, paint1);
-                tempCanvas.drawText(EMOTIONS[max1Index] + ":\t\t\t" + averages[max1Index], 10, 50, paint2);
-                tempCanvas.drawText(EMOTIONS[max2Index] + ":\t\t\t" + averages[max2Index], 10, 150, paint1);
-                tempCanvas.drawText(EMOTIONS[max2Index] + ":\t\t\t" + averages[max2Index], 10, 150, paint2);
-                tempCanvas.drawText(EMOTIONS[max3Index] + ":\t\t\t" + averages[max3Index], 10, 250, paint1);
-                tempCanvas.drawText(EMOTIONS[max3Index] + ":\t\t\t" + averages[max3Index], 10, 250, paint2);
-            }
-            //draw face bounding box
-            if (face != null) {
-                float widthRatio = ((float) width) / mlImage.getWidth();
-                float heightRatio = ((float) height) / mlImage.getHeight();
-                Rect origBounds = face.getBoundingBox();
-                Rect bounds = new Rect(width - (int) (origBounds.right * widthRatio), (int) (origBounds.top * heightRatio), width - (int) (origBounds.left * widthRatio), (int) (origBounds.bottom * heightRatio));
-
-                Paint paint1 = new Paint();
-                paint1.setColor(Color.RED);
-                paint1.setStrokeWidth(5);
-                paint1.setStyle(Paint.Style.STROKE);
-                tempCanvas.drawRect(bounds, paint1);
-                Paint paint2 = new Paint();
-                paint2.setColor(Color.WHITE);
-                paint2.setStrokeWidth(3);
-                paint2.setStyle(Paint.Style.STROKE);
-                Rect bounds2 = new Rect(bounds.left + 4, bounds.top + 4, bounds.right - 4, bounds.bottom - 4);
-                tempCanvas.drawRect(bounds2, paint2);
-            }
-            imageView.setImageBitmap(tempBitmap);
-        });
-    }
-
     private void refreshFaceBitmap(Rect rect) {
         if (bitmap == null || rect.left < 0 || rect.top < 0 || rect.width() + Math.max(0, rect.left) > bitmap.getWidth() || rect.height() + Math.max(0, rect.top) > bitmap.getHeight()) {
             return;
@@ -393,6 +329,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+                .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
                 .setMinFaceSize(0.15f)
                 .enableTracking()
                 .build();
@@ -554,7 +491,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
             }
             CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
-            imageCapture = new ImageCapture.Builder().setTargetRotation(Surface.ROTATION_0).setTargetResolution(new Size(360, 640)).build();
+            imageCapture = new ImageCapture.Builder().setTargetRotation(Surface.ROTATION_0).setTargetResolution(new Size(480, 640)).build();
             cameraProvider.unbindAll();
             cameraProvider.bindToLifecycle(this, cameraSelector, imageCapture, preview);
         }
