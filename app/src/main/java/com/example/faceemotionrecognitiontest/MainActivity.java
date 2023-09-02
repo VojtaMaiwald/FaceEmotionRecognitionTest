@@ -44,6 +44,7 @@ import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.Switch;
+import android.widget.TextView;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
@@ -75,6 +76,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
     ProcessCameraProvider cameraProvider;
     private ImageCapture imageCapture;
     private PreviewView previewView;
+    private TextView textView;
     private MlImage mlImage;
     private ImageView imageView;
     private Bitmap imageViewBitmap;
@@ -101,23 +103,23 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             "0.399_MobileNetV2_A1.0.tflite",
             "0.405_ShuffleNetV2_SC0.5_BOTTLENECK1.tflite",
             "0.423_SqueezeNet_COMPR1.0.tflite",
-            "0.480_DenseNet121.tflite"
+            "0.480_DenseNet121.tflite",
     };
     private final String[] classifiers = new String[]{
-            "50.8_NASNetMobile.tflite",
-            "51.3_ShuffleNet_Channels128.tflite",
-            "53.7_MobileNetV3Large_A_1.25_D_0.2_MINI.tflite",
-            "53.9_ShuffleNetV2_SC1.25_BOTTLENECK1.tflite",
-            "54.2_EfficientNetV2B0.tflite",
-            "54.4_EfficientNetV2B1.tflite",
-            "54.4_SqueezeNet_COMPR1.0_D0.2.tflite",
-            "54.5_MobileNetV3Small_A_2.0.tflite",
-            "54.7_GhostNet.tflite",
-            "54.8_MobileNetV2_D_0.2.tflite",
-            "55.5_EfficientNetB1.tflite",
-            "55.6_DenseNet121.tflite",
+            "56.9_MnasNet_A1.5_DEPTH3.tflite",
             "56.1_EfficientNetB0_MOMENTUM0.9.tflite",
-            "56.9_MnasNet_A1.5_DEPTH3.tflite"
+            "55.6_DenseNet121.tflite",
+            "55.5_EfficientNetB1.tflite",
+            "54.8_MobileNetV2_D_0.2.tflite",
+            "54.7_GhostNet.tflite",
+            "54.5_MobileNetV3Small_A_2.0.tflite",
+            "54.4_SqueezeNet_COMPR1.0_D0.2.tflite",
+            "54.4_EfficientNetV2B1.tflite",
+            "54.2_EfficientNetV2B0.tflite",
+            "53.9_ShuffleNetV2_SC1.25_BOTTLENECK1.tflite",
+            "53.7_MobileNetV3Large_A_1.25_D_0.2_MINI.tflite",
+            "51.3_ShuffleNet_Channels128.tflite",
+            "50.8_NASNetMobile.tflite",
     };
 
     @Override
@@ -178,6 +180,12 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             interpreter.run(tensorImage.getBuffer(), output);
             long difference = System.currentTimeMillis() - startTime;
             Log.wtf("emotionsDetectionsTime", difference + " ms");
+            if (face != null) {
+                textView.setText("Latency: " + difference + " ms");
+            }
+            else {
+                textView.setText("");
+            }
             emotionList.add(output.array());
         }
         catch (Exception ignored) {
@@ -298,10 +306,10 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     private void setupEmotionDetector() {
         Interpreter.Options interpreterOptions = new Interpreter.Options();
-        CompatibilityList compatList = new CompatibilityList();
 
-        // by default it uses some kind of delegate so maybe this is not necessary to explicitly set NNAPI or GPU delegates
+        //CompatibilityList compatList = new CompatibilityList();
 
+        //GPU delegate can significantly decrease latency but not every model supports it
         //if (compatList.isDelegateSupportedOnThisDevice()) {
         //    // if the device has a supported GPU, add the GPU delegate
         //    GpuDelegateFactory.Options delegateOptions = compatList.getBestOptionsForThisDevice();
@@ -310,11 +318,11 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         //    GpuDelegate gpuDelegate = new GpuDelegate(delegateOptions);
         //    interpreterOptions.addDelegate(gpuDelegate);
         //    Log.wtf("emotions", "GPU supported");
-//
         //} else {
         //    Log.wtf("emotions", "GPU not supported");
         //}
 
+        //NNAPI is useless at every point
         //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         //    // if the device has a support in NNAPI, add the NNAPI delegate
         //    NnApiDelegate nnApiDelegate = new NnApiDelegate();
@@ -404,6 +412,7 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
         setContentView(R.layout.activity_main);
         previewView = findViewById(R.id.previewView);
         imageView = findViewById(R.id.imageView);
+        textView = findViewById(R.id.latencyLabel);
 
         paintTextBlack = new Paint();
         paintTextBlack.setColor(Color.BLACK);

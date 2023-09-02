@@ -28,6 +28,16 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="@+id/previewView" />
 
+    <TextView
+        android:textColor="@color/green"
+        android:textSize="20sp"
+        android:id="@+id/latencyLabel"
+        android:layout_width="300dp"
+        android:text=""
+        app:layout_constraintBottom_toTopOf="@+id/switchRegressionButton"
+        app:layout_constraintStart_toStartOf="@+id/previewView"
+        android:layout_height="40dp"/>
+
     <Switch
         android:id="@+id/switchPreviewButton"
         android:layout_width="160dp"
