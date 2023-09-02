@@ -93,22 +93,31 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
     private final String[] regressors = new String[]{
-            "RMSE_0.380_MnasNet_AroVal_E10_B8_A1.0_DEPTH1_Adam0.001.tflite",
-            "RMSE_0.387_ShuffleNet_AroVal_E10_B8_Channels200_Adam0.001.tflite",
-            "RMSE_0.390_ShuffleNetV2_AroVal_E10_B8_SC1.5_BOTTLENECK1_SGD0.01.tflite",
-            "RMSE_0.392_EfficientNetB0_AroVal_E25_B8_SGD0.01.tflite",
-            "RMSE_0.398_MobileNetV2_AroVal_B8_E25_D0.5_Adam_0.01.tflite",
+            "0.380_MnasNet_A1.0_DEPTH1.tflite",
+            "0.387_ShuffleNet_Channels200.tflite",
+            "0.392_EfficientNetB0.tflite",
+            "0.392_ShuffleNet_Channels128.tflite",
+            "0.398_MobileNetV3Large_A1.0_MINI.tflite",
+            "0.399_MobileNetV2_A1.0.tflite",
+            "0.405_ShuffleNetV2_SC0.5_BOTTLENECK1.tflite",
+            "0.423_SqueezeNet_COMPR1.0.tflite",
+            "0.480_DenseNet121.tflite"
     };
     private final String[] classifiers = new String[]{
-            "PERC_56.889_MnasNet_E25_B8_A1.5_DEPTH3_Adam0.0001.tflite",
-            "PERC_56.164_EfficientNetB0_E25_B8_SGD0.01.tflite",
-            "PERC_55.639_DenseNet121_E25_B8_Adam0.0001.tflite",
-            "PERC_55.489_EfficientNetB1_E25_B8_SGD0.01.tflite",
-            "PERC_54.839_MobileNetV2_E25_B8_D_0.2.tflite",
-            "PERC_54.714_GhostNet_E25_B8_Adam0.0001.tflite",
-            "PERC_54.414_SqueezeNet_E25_B8_COMPR1.0_D0.2_Adam0.0001.tflite",
-            "PERC_54.339_MobileNetV3Large_E25_B16_A_1.25_D_0.2.tflite",
-            "PERC_53.938_MobileNetV3Small_E30_B16_A_1.25_D_0.5.tflite",
+            "50.8_NASNetMobile.tflite",
+            "51.3_ShuffleNet_Channels128.tflite",
+            "53.7_MobileNetV3Large_A_1.25_D_0.2_MINI.tflite",
+            "53.9_ShuffleNetV2_SC1.25_BOTTLENECK1.tflite",
+            "54.2_EfficientNetV2B0.tflite",
+            "54.4_EfficientNetV2B1.tflite",
+            "54.4_SqueezeNet_COMPR1.0_D0.2.tflite",
+            "54.5_MobileNetV3Small_A_2.0.tflite",
+            "54.7_GhostNet.tflite",
+            "54.8_MobileNetV2_D_0.2.tflite",
+            "55.5_EfficientNetB1.tflite",
+            "55.6_DenseNet121.tflite",
+            "56.1_EfficientNetB0_MOMENTUM0.9.tflite",
+            "56.9_MnasNet_A1.5_DEPTH3.tflite"
     };
 
     @Override
