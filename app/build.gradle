@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace 'com.example.faceemotionrecognitiontest'
+    namespace 'cz.vsb.faceemotionrecognition'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.example.faceemotionrecognitiontest"
+        applicationId "cz.vsb.faceemotionrecognition"
         minSdk 27
         targetSdk 33
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -20,6 +20,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
     compileOptions {

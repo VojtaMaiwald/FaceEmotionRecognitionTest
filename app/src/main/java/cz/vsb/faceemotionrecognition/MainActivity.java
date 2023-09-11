@@ -1,4 +1,4 @@
-package com.example.faceemotionrecognitiontest;
+package cz.vsb.faceemotionrecognition;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
@@ -12,6 +12,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import cz.vsb.faceemotionrecognition.R;
 import com.google.android.odml.image.BitmapMlImageBuilder;
 import com.google.android.odml.image.MlImage;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,10 +49,6 @@ import android.widget.TextView;
 
 import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.gpu.CompatibilityList;
-import org.tensorflow.lite.gpu.GpuDelegate;
-import org.tensorflow.lite.gpu.GpuDelegateFactory;
-import org.tensorflow.lite.nnapi.NnApiDelegate;
 import org.tensorflow.lite.support.image.TensorImage;
 
 import java.io.File;
@@ -95,6 +92,17 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
 
     private final String[] EMOTIONS = new String[]{"Neutral", "Happiness", "Sadness", "Surprise", "Fear", "Disgust", "Anger", "Contempt"};
     private final String[] regressors = new String[]{
+            /*
+            "0.380_MnasNet_A1.0_DEPTH1.tflite",
+            "0.387_ShuffleNet_Channels200.tflite",
+            "0.392_EfficientNetB0.tflite",
+            "0.392_ShuffleNet_Channels128.tflite",
+            "0.398_MobileNetV3Large_A1.0_MINI.tflite",
+            "0.399_MobileNetV2_A1.0.tflite",
+            "0.405_ShuffleNetV2_SC0.5_BOTTLENECK1.tflite",
+            "0.423_SqueezeNet_COMPR1.0.tflite",
+             */
+
             "0.380_MnasNet_A1.0_DEPTH1.tflite",
             "0.387_ShuffleNet_Channels200.tflite",
             "0.392_EfficientNetB0.tflite",
@@ -106,6 +114,19 @@ public class MainActivity extends AppCompatActivity implements CompoundButton.On
             "0.480_DenseNet121.tflite",
     };
     private final String[] classifiers = new String[]{
+            /*
+            "56.9_MnasNet_A1.5_DEPTH3.tflite",
+            "56.1_EfficientNetB0_MOMENTUM0.9.tflite",
+            "55.5_EfficientNetB1.tflite",
+            "54.8_MobileNetV2_D_0.2.tflite",
+            "54.7_GhostNet.tflite",
+            "54.5_MobileNetV3Small_A_2.0.tflite",
+            "54.4_SqueezeNet_COMPR1.0_D0.2.tflite",
+            "53.9_ShuffleNetV2_SC1.25_BOTTLENECK1.tflite",
+            "53.7_MobileNetV3Large_A_1.25_D_0.2_MINI.tflite",
+            "51.3_ShuffleNet_Channels128.tflite",
+             */
+
             "56.9_MnasNet_A1.5_DEPTH3.tflite",
             "56.1_EfficientNetB0_MOMENTUM0.9.tflite",
             "55.6_DenseNet121.tflite",

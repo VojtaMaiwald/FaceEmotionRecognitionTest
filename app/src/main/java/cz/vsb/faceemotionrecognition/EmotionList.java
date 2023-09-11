@@ -1,4 +1,4 @@
-package com.example.faceemotionrecognitiontest;
+package cz.vsb.faceemotionrecognition;
 
 import java.util.ArrayList;
 
